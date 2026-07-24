@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Veylock
 
-## Getting Started
+> Execution firewall for autonomous capital.
 
-First, run the development server:
+Veylock separates an agent's intelligence from its authority. Any model can propose an action, but settlement must pass a deterministic policy covering asset scope, per-action size, rolling budget, drawdown, operating mode, and emergency halt.
+
+## MVP
+
+- Interactive landing page and policy control room
+- Groq-backed intent generation with a strict JSON contract
+- Independent deterministic policy evaluation in TypeScript
+- Phantom wallet connection and verifiable Solana devnet Memo receipts
+- Anchor 1.1 program with policy PDA, funded vault, paper mode, daily budget, asset allowlist, drawdown breaker, and emergency halt
+- Brand system, product audit, pitch deck, demo script, and submission copy
+
+## Architecture
+
+1. **Reasoning layer** — Groq proposes an intent. It never approves itself.
+2. **Policy layer** — Veylock evaluates deterministic rules and displays each result.
+3. **Settlement layer** — Solana records a receipt or the Anchor vault program executes an authorized transfer.
+
+## Quick Start
 
 ```bash
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000` and use `/app` for the control room.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Required environment variables:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+GROQ_API_KEY=
+GROQ_MODEL=llama-3.3-70b-versatile
+NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
+```
 
-## Learn More
+## Validation
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run typecheck
+npm run lint
+npm run build
+cd onchain
+anchor build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Program ID: `C4jFcBypYefdgw2goHbKREMjZSyRo4LknBVDP5cegYLN`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The program compiles successfully. Devnet upload was attempted on July 23, 2026, but the public RPC exhausted transaction retries while writing the program buffer. Do not describe the program as deployed until `solana program show C4jFc... --url devnet` succeeds.
 
-## Deploy on Vercel
+## Security Model
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Policy authority and agent signer are separate.
+- Funds intended for enforced execution live inside the program-owned policy account.
+- Live settlement is impossible while paper mode is enabled.
+- The agent cannot change paper mode, halt state, or drawdown state.
+- Every authorized intent includes a nonce and caller-supplied 32-byte intent hash.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This is hackathon-grade devnet software, not audited mainnet financial infrastructure.
+
+## Documents
+
+- `docs/PRODUCT-AUDIT.md`
+- `docs/PITCH-DECK.md`
+- `docs/DEMO-SCRIPT.md`
+- `docs/SUBMISSION.md`
+- `docs/MEGAPROMPT-V2.md`
+
+## License
+
+MIT
