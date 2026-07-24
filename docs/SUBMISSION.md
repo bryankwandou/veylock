@@ -22,8 +22,9 @@ Next.js 16, React 19, TypeScript, Groq, Solana Web3.js, Anchor 1.1, and Solana d
 - TypeScript check passes
 - Anchor build and Rust tests pass
 - Solana devnet Memo receipt flow is implemented
-- Program ID is fixed at `C4jFcBypYefdgw2goHbKREMjZSyRo4LknBVDP5cegYLN`
-- Public devnet RPC deployment remains pending after repeated buffer-write retry exhaustion
+- Production demo is live at `https://veylock.vercel.app`
+- Program ID `C4jFcBypYefdgw2goHbKREMjZSyRo4LknBVDP5cegYLN` is deployed on devnet
+- Policy PDA creation, vault deposit, and paper-mode authorization are finalized on-chain
 
 ## What comes next
 

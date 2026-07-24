@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run src/lib/policy.test.ts --maxWorkers=1"
+    "test": "vitest run src/lib/policy.test.ts --maxWorkers=1",
+    "onchain:demo": "node scripts/onchain-demo.mjs"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",

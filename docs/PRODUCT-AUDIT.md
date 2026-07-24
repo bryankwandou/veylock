@@ -64,7 +64,7 @@ Veylock is an execution firewall for autonomous capital. Trading is the first re
 
 ## Validation score
 
-No honest reviewer can guarantee 99.5/100 or a hackathon win. Current score: **82/100 as an MVP**, with a path above 90 after deployed program proof, token-vault settlement, third-party integrations, tests, and an external security review.
+No honest reviewer can guarantee 99.5/100 or a hackathon win. Current score: **88/100 as a verified MVP** after live Groq, live Pyth, public Vercel, public GitHub, deployed program, policy PDA, vault deposit, on-chain paper intent, and automated tests. A path above 90 still requires token-vault settlement, third-party integrations, and an external security review.
 
 ## Kill criteria
 

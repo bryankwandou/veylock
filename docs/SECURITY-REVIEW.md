@@ -25,7 +25,7 @@ Veylock assumes the model, agent runtime, prompts, and strategy code can all be 
 4. Allowed asset and recipient policy are separate concerns; recipient allowlists are not yet implemented.
 5. There is no timelock on changing paper mode.
 6. The program has not received an external audit or fuzzing campaign.
-7. Public RPC reliability blocked devnet deployment proof during this build session.
+7. The program is live on devnet, but it has not been stress-tested under sustained RPC or transaction load.
 
 ## Required before mainnet
 

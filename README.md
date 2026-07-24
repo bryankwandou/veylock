@@ -50,7 +50,10 @@ anchor build
 
 Program ID: `C4jFcBypYefdgw2goHbKREMjZSyRo4LknBVDP5cegYLN`
 
-The program compiles successfully. Devnet upload was attempted on July 23, 2026, but the public RPC exhausted transaction retries while writing the program buffer. Do not describe the program as deployed until `solana program show C4jFc... --url devnet` succeeds.
+The program was deployed and verified on Solana devnet on July 24, 2026. A complete proof run created policy PDA `AdP6UCcPXsDF5Z19WFTPHuBaQ7HSZvLKPywNB457tVG7`, deposited vault funds, and authorized a paper-mode intent.
+
+Production web: `https://veylock.vercel.app`  
+Public repository: `https://github.com/bryankwandou/veylock`
 
 ## Security Model
 
@@ -69,6 +72,8 @@ This is hackathon-grade devnet software, not audited mainnet financial infrastru
 - `docs/DEMO-SCRIPT.md`
 - `docs/SUBMISSION.md`
 - `docs/MEGAPROMPT-V2.md`
+- `docs/SECURITY-REVIEW.md`
+- `docs/DEVNET-PROOF.md`
 
 ## License
 

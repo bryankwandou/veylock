@@ -192,7 +192,7 @@ export function ControlRoom() {
           ))}</div>
           <div className="mt-6 border border-white/10 bg-white/5 p-4"><div className="flex items-center gap-3"><LockKeyhole size={18} className="text-[var(--acid)]" aria-hidden="true" /><div><p className="text-sm font-semibold">Settlement mode</p><p className="mt-1 font-mono text-xs uppercase tracking-wider text-white/45">{decision.mode}</p></div></div></div>
           <button onClick={submitReceipt} disabled={status === "submitting" || !decision.allowed} className="focus-ring mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 bg-white px-5 font-semibold text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-35">{status === "submitting" ? <LoaderCircle className="animate-spin" size={17} aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}{status === "submitting" ? "Submitting" : "Write devnet receipt"}</button>
-          <p className="mt-3 text-center text-xs leading-5 text-white/35">MVP receipts use Solana Memo. Program-enforced settlement lives in the repository program workspace.</p>
+          <p className="mt-3 text-center text-xs leading-5 text-white/35">This browser action writes a Memo receipt. The deployed policy-vault workflow is reproducible with npm run onchain:demo.</p>
         </aside>
       </div>
     </main>

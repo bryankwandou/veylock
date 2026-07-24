@@ -25,7 +25,7 @@
 - Users can force an allowed and blocked verdict by changing policy.
 - Phantom can write a devnet receipt.
 - Anchor program compiles and tests.
-- Program deployment is proven with `solana program show` before being marked complete.
+- Program deployment and a policy lifecycle transaction are proven with finalized devnet signatures.
 - GitHub repo is public and Vercel production URL loads without errors.
 
 ## Design direction
