@@ -102,6 +102,28 @@ pub mod onchain {
         Ok(())
     }
 
+    pub fn update_limits(
+        ctx: Context<ManagePolicy>,
+        max_action_lamports: u64,
+        daily_budget_lamports: u64,
+        max_drawdown_bps: u16,
+    ) -> Result<()> {
+        require!(max_action_lamports > 0, VeylockError::InvalidLimit);
+        require!(daily_budget_lamports >= max_action_lamports, VeylockError::InvalidLimit);
+        require!(max_drawdown_bps > 0 && max_drawdown_bps <= 10_000, VeylockError::InvalidLimit);
+        let policy = &mut ctx.accounts.policy;
+        policy.max_action_lamports = max_action_lamports;
+        policy.daily_budget_lamports = daily_budget_lamports;
+        policy.max_drawdown_bps = max_drawdown_bps;
+        emit!(PolicyLimitsChanged {
+            policy: policy.key(),
+            max_action_lamports,
+            daily_budget_lamports,
+            max_drawdown_bps,
+        });
+        Ok(())
+    }
+
     pub fn set_halt(ctx: Context<ManagePolicy>, halted: bool) -> Result<()> {
         ctx.accounts.policy.halted = halted;
         emit!(PolicyHaltChanged { policy: ctx.accounts.policy.key(), halted });
@@ -188,6 +210,13 @@ pub struct PolicyCreated { pub policy: Pubkey, pub authority: Pubkey, pub agent:
 pub struct VaultFunded { pub policy: Pubkey, pub lamports: u64 }
 #[event]
 pub struct PolicyModeChanged { pub policy: Pubkey, pub paper_mode: bool }
+#[event]
+pub struct PolicyLimitsChanged {
+    pub policy: Pubkey,
+    pub max_action_lamports: u64,
+    pub daily_budget_lamports: u64,
+    pub max_drawdown_bps: u16,
+}
 #[event]
 pub struct PolicyHaltChanged { pub policy: Pubkey, pub halted: bool }
 #[event]

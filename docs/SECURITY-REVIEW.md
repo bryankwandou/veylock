@@ -26,6 +26,7 @@ Veylock assumes the model, agent runtime, prompts, and strategy code can all be 
 5. There is no timelock on changing paper mode.
 6. The program has not received an external audit or fuzzing campaign.
 7. The program is live on devnet, but it has not been stress-tested under sustained RPC or transaction load.
+8. Browser quickstart intentionally uses one wallet as authority and agent. This lowers onboarding friction but removes signer separation and must not be used as the production custody model.
 
 ## Required before mainnet
 

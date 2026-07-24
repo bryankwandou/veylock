@@ -25,6 +25,7 @@ Next.js 16, React 19, TypeScript, Groq, Solana Web3.js, Anchor 1.1, and Solana d
 - Production demo is live at `https://veylock.vercel.app`
 - Program ID `C4jFcBypYefdgw2goHbKREMjZSyRo4LknBVDP5cegYLN` is deployed on devnet
 - Policy PDA creation, vault deposit, and paper-mode authorization are finalized on-chain
+- The production control room now calls the deployed program directly from Phantom for policy creation, funding, synchronization, authorization, halt, and resume
 
 ## What comes next
 

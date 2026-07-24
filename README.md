@@ -9,7 +9,7 @@ Veylock separates an agent's intelligence from its authority. Any model can prop
 - Interactive landing page and policy control room
 - Groq-backed intent generation with a strict JSON contract
 - Independent deterministic policy evaluation in TypeScript
-- Phantom wallet connection and verifiable Solana devnet Memo receipts
+- Phantom wallet connection with a browser-native Veylock lifecycle: create policy, fund vault, sync limits, authorize intent, halt, and resume
 - Anchor 1.1 program with policy PDA, funded vault, paper mode, daily budget, asset allowlist, drawdown breaker, and emergency halt
 - Brand system, product audit, pitch deck, demo script, and submission copy
 
@@ -28,6 +28,17 @@ npm run dev
 ```
 
 Open `http://localhost:3000` and use `/app` for the control room.
+
+### Test with Phantom
+
+1. Connect a wallet that has devnet SOL.
+2. Generate a real Groq intent using the fresh Pyth SOL/USD snapshot.
+3. Create the policy PDA from the control room.
+4. Fund the policy vault with 0.02 SOL.
+5. Sync the current UI mandate to the deployed program.
+6. Authorize the intent and open the returned Solana Explorer signature.
+
+Transactions are signed by the wallet but broadcast through the configured devnet RPC. The quickstart flow uses one wallet as authority and agent for immediate testing; production integrations must use separate signers.
 
 Required environment variables:
 

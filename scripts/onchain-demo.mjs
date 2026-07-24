@@ -45,12 +45,13 @@ async function send(connection, transaction, signers) {
 }
 
 const authority = loadKeypair(walletPath);
+const quickstart = process.env.VEYLOCK_QUICKSTART === "true";
 const agentPath = resolve(process.env.VEYLOCK_AGENT_KEYPAIR ?? "onchain/target/deploy/demo-agent.json");
-if (!existsSync(agentPath)) {
+if (!quickstart && !existsSync(agentPath)) {
   mkdirSync(dirname(agentPath), { recursive: true });
   writeFileSync(agentPath, JSON.stringify(Array.from(Keypair.generate().secretKey)));
 }
-const agent = loadKeypair(agentPath);
+const agent = quickstart ? authority : loadKeypair(agentPath);
 const connection = new Connection(rpcUrl, "confirmed");
 const [policy] = PublicKey.findProgramAddressSync(
   [Buffer.from("policy"), authority.publicKey.toBuffer(), agent.publicKey.toBuffer()],
@@ -90,6 +91,16 @@ const deposit = new TransactionInstruction({
 });
 signatures.deposit = await send(connection, new Transaction().add(deposit), [authority]);
 
+const sync = new TransactionInstruction({
+  programId: PROGRAM_ID,
+  keys: [
+    { pubkey: authority.publicKey, isSigner: true, isWritable: false },
+    { pubkey: policy, isSigner: false, isWritable: true },
+  ],
+  data: Buffer.concat([discriminator("update_limits"), u64(55_000_000), u64(220_000_000), u16(750)]),
+});
+signatures.syncLimits = await send(connection, new Transaction().add(sync), [authority]);
+
 const intentHash = createHash("sha256").update(`veylock-paper-intent-${Date.now()}`).digest();
 const authorize = new TransactionInstruction({
   programId: PROGRAM_ID,
@@ -100,11 +111,12 @@ const authorize = new TransactionInstruction({
   ],
   data: Buffer.concat([discriminator("authorize_intent"), SystemProgram.programId.toBuffer(), u64(20_000_000), intentHash]),
 });
-signatures.paperIntent = await send(connection, new Transaction().add(authorize), [authority, agent]);
+signatures.paperIntent = await send(connection, new Transaction().add(authorize), quickstart ? [authority] : [authority, agent]);
 
 const account = await connection.getAccountInfo(policy, "confirmed");
 console.log(JSON.stringify({
   cluster: "devnet",
+  mode: quickstart ? "single-wallet-quickstart" : "separated-signers",
   programId: PROGRAM_ID.toBase58(),
   authority: authority.publicKey.toBase58(),
   agent: agent.publicKey.toBase58(),
