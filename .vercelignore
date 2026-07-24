@@ -1,0 +1,7 @@
+node_modules
+.next
+onchain/target
+onchain/test-ledger
+onchain/.anchor
+*.log
+.env*
