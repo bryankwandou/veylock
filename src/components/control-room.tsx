@@ -51,10 +51,16 @@ type MarketSnapshot = {
   stale: boolean;
 };
 
+type ActivityReceipt = {
+  label: string;
+  signature: string;
+  timestamp: number;
+};
+
 export function ControlRoom() {
   const [policy, setPolicy] = useState<Policy>(defaultPolicy);
   const [proposal, setProposal] = useState<TradeProposal>(initialProposal);
-  const [prompt, setPrompt] = useState("Review SOL momentum and propose one bounded action for a cautious treasury mandate.");
+  const [prompt, setPrompt] = useState("Review SOL momentum and propose one action that stays inside every supplied cautious treasury limit.");
   const [status, setStatus] = useState<"idle" | "thinking" | "submitting" | "confirmed" | "error">("idle");
   const [message, setMessage] = useState("Ready for a new intent.");
   const [walletAddress, setWalletAddress] = useState("");
@@ -68,6 +74,8 @@ export function ControlRoom() {
   const [onchainPolicy, setOnchainPolicy] = useState<OnchainPolicy | null>(null);
   const [policyLamports, setPolicyLamports] = useState(0);
   const [chainBusy, setChainBusy] = useState("");
+  const [receipts, setReceipts] = useState<ActivityReceipt[]>([]);
+  const [agentCycleRunning, setAgentCycleRunning] = useState(false);
   const decision = useMemo(() => evaluateProposal(proposal, policy), [proposal, policy]);
   const connection = useMemo(() => new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com", "confirmed"), []);
 
@@ -86,7 +94,10 @@ export function ControlRoom() {
     }
   }, []);
 
-  useEffect(() => { void loadMarket(); }, [loadMarket]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => { void loadMarket(); }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadMarket]);
   useEffect(() => {
     void connection.getAccountInfo(VEYLOCK_PROGRAM_ID, "confirmed").then((account) => setProgramVerified(Boolean(account?.executable))).catch(() => setProgramVerified(false));
   }, [connection]);
@@ -110,14 +121,20 @@ export function ControlRoom() {
     }
   }, [connection]);
 
+  async function requestAgentProposal(snapshot: MarketSnapshot) {
+    const response = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, policy, market: snapshot }) });
+    const body = (await response.json()) as { proposal?: TradeProposal; error?: string };
+    if (!response.ok || !body.proposal) throw new Error(body.error ?? "No proposal returned");
+    return body.proposal;
+  }
+
   async function generateProposal() {
     setStatus("thinking");
     setMessage("Groq is drafting an intent. Veylock will judge it separately.");
     try {
-      const response = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, policy, market }) });
-      const body = (await response.json()) as { proposal?: TradeProposal; error?: string };
-      if (!response.ok || !body.proposal) throw new Error(body.error ?? "No proposal returned");
-      setProposal(body.proposal);
+      if (!market || market.stale) throw new Error("Refresh the verified SOL/USD price first.");
+      const nextProposal = await requestAgentProposal(market);
+      setProposal(nextProposal);
       setStatus("idle");
       setMessage("Intent generated. Policy checks updated without trusting the model verdict.");
     } catch (error) {
@@ -161,8 +178,9 @@ export function ControlRoom() {
       } else {
         transactionSignature = (await window.solana.signAndSendTransaction(transaction)).signature;
       }
-      await connection.confirmTransaction({ signature: transactionSignature, ...latest }, "confirmed");
+      await connection.confirmTransaction({ signature: transactionSignature, ...latest }, "finalized");
       setSignature(transactionSignature);
+      setReceipts((current) => [{ label, signature: transactionSignature, timestamp: Date.now() }, ...current].slice(0, 5));
       await refreshChain(window.solana.publicKey);
       setStatus("confirmed");
       setMessage(`${label} finalized on Solana devnet.`);
@@ -200,6 +218,27 @@ export function ControlRoom() {
     await sendProgramTransaction("Fund vault", [buildDepositInstruction(window.solana.publicKey, new PublicKey(policyAddress), 20_000_000)]);
   }
 
+  async function requestDevnetSol() {
+    if (!window.solana?.publicKey) { await connectWallet(); return; }
+    setChainBusy("Request airdrop");
+    setStatus("submitting");
+    setMessage("Requesting 1 devnet SOL from the cluster faucet.");
+    try {
+      const transactionSignature = await connection.requestAirdrop(window.solana.publicKey, LAMPORTS_PER_SOL);
+      await connection.confirmTransaction(transactionSignature, "finalized");
+      setSignature(transactionSignature);
+      setReceipts((current) => [{ label: "Request airdrop", signature: transactionSignature, timestamp: Date.now() }, ...current].slice(0, 5));
+      await refreshChain(window.solana.publicKey);
+      setStatus("confirmed");
+      setMessage("Devnet SOL airdrop finalized.");
+    } catch (error) {
+      setStatus("error");
+      setMessage(error instanceof Error ? `${error.message} Use faucet.solana.com if the public RPC faucet is rate-limited.` : "Airdrop failed");
+    } finally {
+      setChainBusy("");
+    }
+  }
+
   async function syncOnchainPolicy() {
     try {
       const { wallet, market: snapshot } = requireWalletAndMarket();
@@ -220,14 +259,59 @@ export function ControlRoom() {
     if (result) setPolicy({ ...policy, halted });
   }
 
+  async function authorizeProposal(targetProposal: TradeProposal, snapshot: MarketSnapshot, label: string, syncMandate = false) {
+    const wallet = window.solana?.publicKey;
+    if (!wallet) throw new Error("Connect a Solana wallet first.");
+    if (!policyAddress || !onchainPolicy) throw new Error("Create and sync an on-chain policy first.");
+    const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify({ proposal: targetProposal, policyAddress, timestamp: Date.now() }))));
+    const address = new PublicKey(policyAddress);
+    const instructions = syncMandate ? [
+      buildUpdateLimitsInstruction(wallet, address, usdToLamports(policy.maxTradeUsd, snapshot.price), usdToLamports(policy.dailyBudgetUsd, snapshot.price), Math.round(policy.maxDrawdownPercent * 100)),
+      buildSetPaperModeInstruction(wallet, address, policy.paperMode),
+      buildUpdateDrawdownInstruction(wallet, address, Math.round(policy.currentDrawdownPercent * 100)),
+      buildSetHaltInstruction(wallet, address, policy.halted),
+    ] : [];
+    instructions.push(buildAuthorizeIntentInstruction({ agent: wallet, policy: address, recipient: wallet, amountLamports: usdToLamports(targetProposal.amountUsd, snapshot.price), intentHash: hash }));
+    return sendProgramTransaction(label, instructions);
+  }
+
   async function authorizeOnchainIntent() {
     try {
       if (!decision.allowed) throw new Error("The local preflight blocks this intent.");
-      const { wallet, market: snapshot } = requireWalletAndMarket();
-      if (!policyAddress || !onchainPolicy) throw new Error("Create and sync an on-chain policy first.");
-      const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify({ proposal, policyAddress, timestamp: Date.now() }))));
-      await sendProgramTransaction("Authorize intent", [buildAuthorizeIntentInstruction({ agent: wallet, policy: new PublicKey(policyAddress), recipient: wallet, amountLamports: usdToLamports(proposal.amountUsd, snapshot.price), intentHash: hash })]);
+      const { market: snapshot } = requireWalletAndMarket();
+      await authorizeProposal(proposal, snapshot, "Authorize intent");
     } catch (error) { setStatus("error"); setMessage(error instanceof Error ? error.message : "Intent authorization failed"); }
+  }
+
+  async function runFullAgentCycle() {
+    if (!window.solana?.publicKey || !onchainPolicy) {
+      setStatus("error");
+      setMessage("Connect a wallet and create its devnet policy before running the full cycle.");
+      return;
+    }
+    setAgentCycleRunning(true);
+    setStatus("thinking");
+    setMessage("Refreshing Pyth, asking Groq, and running deterministic preflight.");
+    try {
+      const marketResponse = await fetch("/api/market", { cache: "no-store" });
+      const snapshot = (await marketResponse.json()) as MarketSnapshot & { error?: string };
+      if (!marketResponse.ok || !snapshot.price || snapshot.stale) throw new Error(snapshot.error ?? "A fresh Pyth snapshot is required.");
+      setMarket(snapshot);
+      const nextProposal = await requestAgentProposal(snapshot);
+      setProposal(nextProposal);
+      const nextDecision = evaluateProposal(nextProposal, policy);
+      if (!nextDecision.allowed) {
+        setStatus("idle");
+        setMessage("The autonomous cycle stopped safely because the generated intent failed policy preflight.");
+        return;
+      }
+      await authorizeProposal(nextProposal, snapshot, "Run agent cycle", true);
+    } catch (error) {
+      setStatus("error");
+      setMessage(error instanceof Error ? error.message : "Full agent cycle failed");
+    } finally {
+      setAgentCycleRunning(false);
+    }
   }
 
   return (
@@ -272,9 +356,15 @@ export function ControlRoom() {
           <div className="mt-7">
             <label htmlFor="agent-prompt" className="text-sm font-semibold">Instruction</label>
             <textarea id="agent-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4} className="focus-ring mt-3 w-full resize-none border border-white/15 bg-[#111713] p-4 leading-7 text-white placeholder:text-white/25" />
-            <button onClick={generateProposal} disabled={status === "thinking"} className="focus-ring mt-3 inline-flex min-h-11 items-center gap-2 bg-[var(--acid)] px-5 font-semibold text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-55">
-              {status === "thinking" ? <LoaderCircle className="animate-spin" size={17} aria-hidden="true" /> : <Bot size={17} aria-hidden="true" />}{status === "thinking" ? "Drafting intent" : "Generate with Groq"}
-            </button>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <button onClick={generateProposal} disabled={status === "thinking" || status === "submitting" || agentCycleRunning} className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 bg-[var(--acid)] px-5 font-semibold text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-55">
+                {status === "thinking" && !agentCycleRunning ? <LoaderCircle className="animate-spin" size={17} aria-hidden="true" /> : <Bot size={17} aria-hidden="true" />}{status === "thinking" && !agentCycleRunning ? "Drafting intent" : "Generate with Groq"}
+              </button>
+              <button onClick={runFullAgentCycle} disabled={!walletAddress || !onchainPolicy || Boolean(chainBusy) || agentCycleRunning} className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 border border-white/20 bg-white/5 px-5 font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35">
+                {agentCycleRunning ? <LoaderCircle className="animate-spin" size={17} aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}{agentCycleRunning ? "Running verified cycle" : "Run full AI to Solana cycle"}
+              </button>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-white/40">The full cycle refreshes Pyth, requests a structured Groq proposal, applies local policy checks, then asks Phantom to authorize the exact intent on devnet.</p>
           </div>
           <article className="mt-8 border border-white/15 bg-[#111713]">
             <div className="flex items-center justify-between border-b border-white/10 p-5"><div><p className="mono-label text-white/40">Proposed action</p><p className="mt-2 text-2xl font-semibold"><span className={proposal.side === "BUY" ? "text-[var(--acid)]" : "text-[var(--coral)]"}>{proposal.side}</span> {proposal.asset}</p></div><div className="text-right"><p className="font-mono text-2xl">${proposal.amountUsd.toLocaleString()}</p><p className="mt-1 text-xs text-white/40">{proposal.confidence}% model confidence</p></div></div>
@@ -307,6 +397,7 @@ export function ControlRoom() {
 
           <div className="mt-4 grid gap-2">
             {!walletAddress && <ChainButton onClick={connectWallet} busy={chainBusy} label="Connect Phantom" icon={Wallet} />}
+            {walletAddress && (walletBalance === null || walletBalance < 0.05) && <ChainButton onClick={requestDevnetSol} busy={chainBusy} label="Request 1 devnet SOL" icon={UploadCloud} secondary />}
             {walletAddress && !onchainPolicy && <ChainButton onClick={createOnchainPolicy} busy={chainBusy} label="1. Create devnet policy" icon={LockKeyhole} />}
             {onchainPolicy && <>
               <ChainButton onClick={fundOnchainPolicy} busy={chainBusy} label="2. Fund vault · 0.02 SOL" icon={UploadCloud} secondary />
@@ -315,6 +406,10 @@ export function ControlRoom() {
               <ChainButton onClick={toggleOnchainHalt} busy={chainBusy} label={onchainPolicy.halted ? "Resume policy" : "Emergency halt"} icon={ShieldAlert} danger={!onchainPolicy.halted} secondary={onchainPolicy.halted} />
             </>}
           </div>
+          {receipts.length > 0 && <div className="mt-5 border-t border-white/10 pt-5">
+            <div className="flex items-center justify-between gap-3"><p className="mono-label text-white/40">Recent finalized receipts</p><span className="font-mono text-[10px] text-white/30">DEVNET</span></div>
+            <div className="mt-3 space-y-2">{receipts.map((receipt) => <a key={receipt.signature} href={`https://explorer.solana.com/tx/${receipt.signature}?cluster=devnet`} target="_blank" rel="noreferrer" className="focus-ring flex min-h-12 items-center justify-between gap-3 border border-white/10 px-3 py-2 hover:bg-white/5"><span><span className="block text-xs font-semibold text-white/75">{receipt.label}</span><span className="mt-1 block font-mono text-[10px] text-white/35">{new Date(receipt.timestamp).toLocaleTimeString()}</span></span><span className="flex items-center gap-1 font-mono text-[10px] text-[var(--acid)]">{compactAddress(receipt.signature)}<ExternalLink size={12} aria-hidden="true" /></span></a>)}</div>
+          </div>}
           <p className="mt-3 text-center text-xs leading-5 text-white/35">Every action above calls program C4jFc…gYLN on Solana devnet and returns an explorer-verifiable signature.</p>
         </motion.aside>
       </div>

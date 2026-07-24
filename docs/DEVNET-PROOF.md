@@ -50,3 +50,25 @@ Reproduce the same signer topology:
 ```bash
 VEYLOCK_QUICKSTART=true SOLANA_WALLET=/path/to/devnet-wallet.json npm run onchain:demo
 ```
+
+## Production AI-to-chain proof
+
+Verified on July 24, 2026 against `https://veylock.vercel.app` and Solana devnet with separate authority and agent signers.
+
+- Market source: Pyth Hermes SOL/USD
+- Model: `llama-3.3-70b-versatile` through the production Groq route
+- Proposal: BUY SOL for $380
+- Deterministic checks: asset allowlist, per-action ceiling, daily budget, and drawdown breaker all passed
+- Intent hash: `2c9391b1e809075c69b950ceba22130e5bdca530869f645ca5d8350f55b8500e`
+- Policy sync: `4qphY17yEQwxoSYis881FwvhNJBbeprd6eUG9D5t12ZJse93nVRCs82nTJeXf8AYyVhM7SFTS1t3bmDfeRdrmo3j`
+- Exact proposal authorization: `55EqFrgVeHu1CWdaWpcxwTZkgzMFpHVRkPpmRZQy62perdCtJqeBB75AXK8aKnEUQWivdFWniNb6mXrf17n2RPRE`
+
+Reproduce without exposing key material:
+
+```bash
+SOLANA_WALLET=/path/to/authority.json \
+VEYLOCK_AGENT_KEYPAIR=/path/to/agent.json \
+npm run proof:full-cycle
+```
+
+The script verifies the deployed program is executable, requests a fresh production Pyth snapshot, requests a real structured Groq proposal, applies the same deterministic preflight used by the browser, synchronizes the on-chain mandate, hashes the exact proposal payload, submits it with the agent signer, and checks every returned signature for transaction errors.

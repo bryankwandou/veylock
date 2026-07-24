@@ -58,7 +58,7 @@ export async function POST(request: Request) {
           messages: [
             {
               role: "system",
-              content: "Return only one compact JSON object with exactly six keys: side, asset, amountUsd, confidence, thesis, invalidation. side is BUY or SELL. confidence is your integer reasoning score from 1 to 100. verifiedMarketSnapshot.confidenceUsd is only the oracle's dollar confidence interval and must never be copied into confidence. You propose an intent but never approve it. Use only supplied market facts.",
+              content: "Return only one compact JSON object with exactly six keys: side, asset, amountUsd, confidence, thesis, invalidation. side is BUY or SELL. confidence is your integer reasoning score from 1 to 100. verifiedMarketSnapshot.confidenceUsd is only the oracle's dollar confidence interval and must never be copied into confidence. Use only supplied market facts. Aim to satisfy the supplied mandate, including its asset allowlist and numeric limits, but never claim approval because deterministic policy code decides authorization separately.",
             },
             { role: "user", content: JSON.stringify({ instruction: input.prompt, mandate: input.policy, verifiedMarketSnapshot: input.market ?? null }) },
           ],

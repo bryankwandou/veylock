@@ -9,7 +9,8 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run src/lib/policy.test.ts src/lib/veylock-program.test.ts --maxWorkers=1",
-    "onchain:demo": "node scripts/onchain-demo.mjs"
+    "onchain:demo": "node scripts/onchain-demo.mjs",
+    "proof:full-cycle": "node scripts/full-cycle-proof.mjs"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",

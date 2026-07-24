@@ -9,6 +9,7 @@ Veylock separates an agent's intelligence from its authority. Any model can prop
 - Interactive landing page and policy control room
 - Groq-backed intent generation with a strict JSON contract
 - Independent deterministic policy evaluation in TypeScript
+- One-click Pyth → Groq → policy → Phantom → Solana devnet workflow with finalized receipt history
 - Phantom wallet connection with a browser-native Veylock lifecycle: create policy, fund vault, sync limits, authorize intent, halt, and resume
 - Anchor 1.1 program with policy PDA, funded vault, paper mode, daily budget, asset allowlist, drawdown breaker, and emergency halt
 - Brand system, product audit, pitch deck, demo script, and submission copy
@@ -32,7 +33,7 @@ Open `http://localhost:3000` and use `/app` for the control room.
 ### Test with Phantom
 
 1. Connect a wallet that has devnet SOL.
-2. Generate a real Groq intent using the fresh Pyth SOL/USD snapshot.
+2. Generate a real Groq intent using the fresh Pyth SOL/USD snapshot, or use **Run full AI to Solana cycle**.
 3. Create the policy PDA from the control room.
 4. Fund the policy vault with 0.02 SOL.
 5. Sync the current UI mandate to the deployed program.
@@ -54,6 +55,7 @@ NEXT_PUBLIC_SOLANA_NETWORK=devnet
 ```bash
 npm run typecheck
 npm run lint
+npm test
 npm run build
 cd onchain
 anchor build
@@ -62,6 +64,14 @@ anchor build
 Program ID: `C4jFcBypYefdgw2goHbKREMjZSyRo4LknBVDP5cegYLN`
 
 The program was deployed and verified on Solana devnet on July 24, 2026. A complete proof run created policy PDA `AdP6UCcPXsDF5Z19WFTPHuBaQ7HSZvLKPywNB457tVG7`, deposited vault funds, and authorized a paper-mode intent.
+
+The production API-to-chain proof fetched Pyth through `veylock.vercel.app`, generated a structured proposal with `llama-3.3-70b-versatile`, passed all four deterministic checks, synchronized the policy, and finalized authorization signature `55EqFrgVeHu1CWdaWpcxwTZkgzMFpHVRkPpmRZQy62perdCtJqeBB75AXK8aKnEUQWivdFWniNb6mXrf17n2RPRE`.
+
+```bash
+SOLANA_WALLET=/path/to/authority.json \
+VEYLOCK_AGENT_KEYPAIR=/path/to/agent.json \
+npm run proof:full-cycle
+```
 
 Production web: `https://veylock.vercel.app`  
 Public repository: `https://github.com/bryankwandou/veylock`
